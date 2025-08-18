@@ -1,0 +1,33 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlan
+metadata:
+  labels:
+    release.appstudio.openshift.io/auto-release: "true"
+    release.appstudio.openshift.io/standing-attribution: "true"
+  name: publish-bundle
+  namespace: cqi-tenant
+spec:
+  application: my-definitions
+  data:
+    mapping:
+      components:
+      - name: my-definitions-task-init-v01-ew02
+        repository: quay.io/mytestworkload/my-tekton-catalog/task-init
+        tags:
+        - "0.1"
+        - latest
+        - "{{ git_sha }}"
+        - "{{ git_short_sha }}"
+        - "{{ digest_sha }}"
+  target: managed-tenant-namespace
+  tenantPipeline:
+    pipelineRef:
+      resolver: git
+      params:
+      - name: url
+        value: "https://github.com/my-konflux-stuff/my-definitions.git"
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: "resources/tenant-release-pipeline.yaml"
+    serviceAccountName: build-pipeline-my-definitions-task-init-v01-ew02

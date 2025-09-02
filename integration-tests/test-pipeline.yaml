@@ -3,8 +3,18 @@ kind: Pipeline
 metadata:
   name: test-pipeline
 spec:
+  params:
+  - description: 'Snapshot of the application'
+    name: SNAPSHOT
+    default: ''
+    type: string
   tasks:
   - name: test
+    params:
+      - name: SNAPSHOT
+        value: $(params.SNAPSHOT)
+      - name: test-name
+        value: $(context.pipelineRun.name)
     taskSpec:
       steps:
       - name: test

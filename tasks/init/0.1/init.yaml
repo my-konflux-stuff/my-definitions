@@ -31,3 +31,4 @@ spec:
       printf "show image info\n"
       printf "integration tests has been set up.\n"
       printf "review pr.\n"
+      printf "edit to see how the intg tests works\n"

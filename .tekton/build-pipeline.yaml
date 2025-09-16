@@ -181,7 +181,7 @@ spec:
       - name: url
         value: https://github.com/tkdchen/build-definitions.git
       - name: revision
-        value: review-hongli-2611
+        value: STONEBLD-3775
       - name: pathInRepo
         value: task/tkn-bundle-oci-ta/0.2/tkn-bundle-oci-ta.yaml
       resolver: git

@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "pull_request" && target_branch == "main" && (
-        "tasks/init/0.1/***".pathChanged() ||
+        "task/init/0.1/***".pathChanged() ||
         ".tekton/build-pipeline.yaml".pathChanged() ||
         ".tekton/my-definitions-task-init-v01-ew02-pull-request.yaml".pathChanged()
       )
@@ -34,7 +34,7 @@ spec:
   - name: dockerfile
     value: Dockerfile
   - name: path-context
-    value: tasks/init/0.1
+    value: task/init/0.1
   pipelineRef:
     name: build-pipeline
   taskRunTemplate:

@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.1.16"
+    app.kubernetes.io/version: "0.1.17"
     build.appstudio.redhat.com/build_type: "docker"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
@@ -32,3 +32,4 @@ spec:
       printf "integration tests has been set up.\n"
       printf "review pr.\n"
       printf "bump version to 0.1.16\n"
+      printf "bump version to 0.1.17\n"

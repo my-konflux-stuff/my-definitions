@@ -1,0 +1,23 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  labels:
+    app.kubernetes.io/version: "0.1"
+    build.appstudio.redhat.com/build_type: "docker"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: "konflux"
+  name: copy-files
+spec:
+  description: Copy files
+  params:
+  - name: filenames
+    type: array
+    default: []
+  steps:
+  - name: copy-files
+    image: debian
+    script: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      echo copy files

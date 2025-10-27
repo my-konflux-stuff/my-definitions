@@ -54,13 +54,19 @@ Putting it all together, the structure is as follows:
 ```text
 task                                    👈 all tasks go here
 ├── hello                               👈 the name of a task
-│   └── 0.1                             👈 a specific version of the task
-│       ├── hello.yaml                  👈 ${task_name}.yaml
+│   ├── 0.1                             👈 a specific version of the task
+│   │   ├── hello.yaml                  👈 ${task_name}.yaml
+│   │   └── README.md
+│   │   └── tests                       👈 Test directory
+│   │       ├── test-hello.yaml         👈 Test - A Pipeline named test-*.yaml
+│   │       ├── test-hello-2.yaml       👈 Test case 2
+│   │       └── pre-apply-task-hook.sh  👈 Optional hook
+│   └── 0.2
+│       ├── hello.yaml
+│       ├── MIGRATION.md                👈 migration notes for this version
+│       ├── migrations
+│       │   └── 0.2.sh                  👈 script for migrating to 0.2
 │       └── README.md
-│       └── tests                       👈 Test directory
-│           └── test-hello.yaml         👈 Test - A Pipeline named test-*.yaml
-│           └── test-hello-2.yaml       👈 Test case 2
-│           └── pre-apply-task-hook.sh  👈 Optional hook
 └── hello-oci-ta                        👈 ${task_name}-oci-ta for Trusted Artifacts
     └── 0.1
         ├── hello-oci-ta.yaml
@@ -79,6 +85,157 @@ task                                    👈 all tasks go here
 
 Checkton is used to lint shell scripts embedded in YAML files (primarily Tekton files). 
 It does so by running ShellCheck. For more details, see the [checkton project](https://github.com/chmeliik/checkton)
+
+### Task migration
+
+- script: [`hack/create-task-migration.sh`](hack/create-task-migration.sh)
+  - Creates a new migration script based on a basic template.
+- script: [`hack/validate-migration.sh`](hack/validate-migration.sh)
+  - Validates migration scripts.
+- workflow: [`.github/workflows/check-task-migration.yaml`](.github/workflows/check-task-migration.yaml)
+  - Validates migration scripts and ensures MIGRATION.md is provided.
+
+Task migrations allow task maintainers to introduce changes to Konflux standard
+pipelines according to the task updates. By creating migrations, task
+maintainers are able to add/remove/update task parameters, change task
+execution order, add/remove mandatory task to/from pipelines, etc.
+
+Historically, task maintainers write `MIGRATION.md` to notify users what changes
+have to be made to the pipeline. This mechanism is not deprecated. Besides
+writing the document, it is also recommended to write a migration script so that the
+updates can be applied to user pipelines automatically, that is done by the
+[pipeline-migration-tool](https://github.com/konflux-ci/pipeline-migration-tool).
+
+Task migrations are Bash scripts defined in version-specific task
+directories. In general, a migration consists of a series of `yq` commands that
+modify pipeline in order to work with the new version of task. Developers can
+do more with task migrations on the pipelines, e.g. add/remove a task,
+add/remove/update task parameters, change execution order of a task, etc.
+
+#### Create a migration
+
+The following is the steps to write a migration:
+
+- Bump task version. Modify label `app.kubernetes.io/version` in the task YAML file.
+- Ensure `migrations/` directory exists in the version-specific task directory.
+- Create a migration file under the `migrations/` directory. Its name is in
+  form `<new task version>.sh`. Note that the version must match the bumped
+  version.
+
+The migration file is a normal Bash script file:
+
+- It accepts a single argument. The pipeline file path is provided via this
+  argument. The script must work with a Tekton Pipeline by modifying the
+  pipeline definition under the `.spec` field. In practice, regardless of whether
+  the pipeline definition is embedded within the PipelineRun by `pipelineSpec` or
+  extracted into a separate YAML file, the migration tool ensures that the
+  passed-in pipeline file contains the correct pipeline definition.
+- All modifications to the pipeline must be done in-place, i.e. using `yq
+  -i` to operate the pipeline YAML.
+- It should be simple and small as much as possible.
+- It should be idempotent as much as possible to ensure that the changes are
+  not duplicated to the pipeline when run the migration multiple times.
+- Pass the `shellcheck` without customizing the default rules.
+- Check whether the migration is for all kinds of Konflux pipelines or not. If
+  no, skip the pipeline properly in the script, e.g. skip FBC pipeline due
+  to [many tasks are removed](https://github.com/konflux-ci/build-definitions/blob/main/pipelines/fbc-builder/patch.yaml)
+  from template-build.yaml.
+- The pipeline file path and name can be arbitrary. Please do not use the input
+  value to check pipeline type or do test in `if-then-else` statement for
+  conditional operations.
+
+Here are example steps to create a migration for a task `task-a`:
+
+```bash
+yq -i "(.metadata.labels.\"app.kubernetes.io/version\") |= \"0.2.2\"" task/task-a/0.2/task-a.yaml
+mkdir -p task/task-a/0.2/migrations || :
+cat >task/task-a/0.2/migrations/0.2.2.sh <<EOF
+#!/usr/bin/env bash
+set -e
+pipeline_file=\$1
+
+# Ensure parameter is added only once whatever how many times to run this script.
+if ! yq -e '.spec.tasks[] | select(.name == "task-a") | .params[] | select(.name == "pipelinerun-name")' >/dev/null
+then
+  yq -i -e '
+    (.spec.tasks[] | select(.name == "task-a") | .params) +=
+    {"name": "pipelinerun-name", "value": "\$(context.pipelineRun.name)"}
+  ' "\$pipeline_file"
+fi
+EOF
+```
+
+To add a new task to the user pipelines, a migration can be created with a
+fictional task update. That is to select a task, bump its version
+and create a migration under its version-specific directory.
+
+#### Create a startup migration by the helper script
+
+`./hack/create-task-migration.sh` is a convenient tool to help developers
+create a task migration. The script handles most of the details of migration
+creation. It generates a startup migration template file, then developers are
+responsible for writing concrete script, which usually consists of a series of
+`yq` commands, to implement the migration.
+
+Here are a few examples:
+
+To create a migration for the latest major.minor version of task `push-dockerfile`:
+
+```bash
+./hack/create-task-migration.sh -t push-dockerfile
+```
+
+To get a complete usage: `./hack/create-task-migration.sh -h`
+
+#### Add tasks to Konflux pipelines
+
+Fictional task updates is a way to add tasks to Konflux pipelines. Following
+is the workflow:
+
+- Add the new task to the repository. Go through the whole process until
+  task bundle is pushed to the registry. If the task to be added exists
+  already, skip this step.
+
+- Create a migration for the task:
+
+  - Choose an existing task to act as a fictional update.
+  - Create a migration for it:
+
+    ```bash
+    ./hack/create-task-migration.sh -t <task name>
+    ```
+
+  - Edit the generated migration file, write script to add the task. Here is an
+    example using `yq`:
+
+    ```bash
+    #!/usr/bin/env bash
+    pipeline=$1
+    name="<task name>"
+    if ! yq -e ".spec.tasks[] | select(.name == \"${name}\")" "$pipeline" >/dev/null 2>&1
+    then
+      task_def="{
+        \"name\": \"${name}\",
+        \"taskRef\": {
+          \"params\": [
+            {\"name\": \"name\", \"value\": \"${name}\"},
+            {\"name\": \"bundle\", \"value\": \"<bundle reference>\"},
+            {\"name\": \"kind\", \"value\": \"task\"}
+          ]
+        },
+        \"runAfter\": [\"<task name>\"]
+      }"
+      yq -i ".spec.tasks += ${task_def}" "$pipeline"
+    fi
+    ```
+
+    Add necessary additional code to make the migration work well.
+
+- Commit the updated task YAML file and the migration file and go through the
+  review process.
+
+The migration will be applied during next Renovate run scheduled by MintMaker.
+
 
 ### Kustomize Build
 
@@ -100,8 +257,11 @@ Use [`hack/build-manifests.sh`](hack/build-manifests.sh) to regenerate the manif
 
 - script: [`hack/generate-ta-tasks.sh`](hack/generate-ta-tasks.sh)
   - Generates Trusted Artifacts variants of Tasks. See below for more details.
+- script: [`hack/missing-ta-tasks.sh`](hack/missing-ta-tasks.sh)
+  - Checks that all Tasks that use workspaces have a Trusted Artifacts variant.
 - workflow: [`.github/workflows/check-ta.yaml`](.github/workflows/check-ta.yaml)
-  - Checks that the Trusted Artifacts variants are up to date with their base Tasks.
+  - Checks that Tasks have Trusted Artifacts variants and that those variants
+    are up to date with their base Tasks.
 
 With Trusted Artifacts (TA), Tasks share files via the use of archives stored in
 an image repository and not using attached storage (PersistentVolumeClaims). This
@@ -117,6 +277,27 @@ To author a Trusted Artifacts variant of a Task, create the `${task_name}-oci-ta
 directory, define a [`recipe.yaml`][recipe.yaml] inside the directory and generate
 the TA variant using the [`hack/generate-ta-tasks.sh`](hack/generate-ta-tasks.sh)
 script. See the [trusted-artifacts generator] README for more details.
+
+#### Ignore missing Trusted Artifacts tasks
+
+The `missing-ta-tasks` script supports an ignore file located at one of these paths
+(listed in order of precedence from highest to lowest):
+
+- `.github/.ta-ignore.yaml`
+- `.ta-ignore.yaml`
+
+```yaml
+# Task paths (glob patterns) to ignore
+paths:
+  - task/hello/0.2/hello.yaml
+  - task/another-task/*
+
+# Workspaces that even TA-compatible Tasks can use
+# (i.e. workspaces that are not used for sharing data between tasks)
+workspaces:
+  - netrc-auth
+  - git-auth
+```
 
 ### Shared CI Updater
 
@@ -198,12 +379,18 @@ run the script to automatically update `renovate.json`.
 This ensures your Shared CI workflows follow the GitHub Actions versions defined
 in the upstream reposistory and avoids unnecessary merge conflicts.
 
-### Task Integration Tests
+### Task Validation and Integration Tests
 
 - workflow: [`.github/workflows/run-task-tests.yaml`](.github/workflows/run-task-tests.yaml)
-- script: [`.github/scripts/test_tekton_tasks.sh`](.github/scripts/test_tekton_tasks.sh)
+- tests script: [`.github/scripts/test_tekton_tasks.sh`](.github/scripts/test_tekton_tasks.sh)
+- validation script: [`.github/scripts/check_tekton_tasks.sh`](.github/scripts/check_tekton_tasks.sh)
 
-This workflow automatically runs integration tests for any Tekton Task that is changed in a pull request. It spins up a temporary Kubernetes (Kind) cluster, deploys Tekton, and then executes the tests defined for the modified task.
+To ensure all Tekton Tasks are well-formed and valid, a single `Run Task Tests` workflow is executed on every pull request that modifies files in the `task/` directory.
+
+This workflow is designed to be efficient by following a two-stage logic:
+
+1. `Syntax Validation`
+2. `Integration Tests`
 
 #### How to Add a Test
 
@@ -287,22 +474,6 @@ This check **disallows using `$(params.*)` variable substitution directly within
 Using `$(params.*)` directly in a script creates a security flaw. Tekton performs a raw text replacement of the parameter placeholder before the script is executed. This means if a parameter's value contains malicious shell commands, they will be run, leading to **arbitrary code execution**.
 
 For more details and guidance on fixing the issue, see the [Tekton recommendations](https://github.com/tektoncd/catalog/blob/main/recommendations.md#dont-use-interpolation-in-scripts-or-string-arguments)
-
-### Tekton Task Validation
-
-To ensure all Tekton Tasks are well-formed and valid, a `Check Tekton Tasks` workflow is executed on every pull request. This workflow serves as a safeguard to block invalid tasks from being merged, so we don’t risk breaking users.
-
-#### If the Check Fails
-
-- Open the workflow logs in GitHub Actions
-- Look at the `Apply all Tasks` step
-- The logs will show which Task file failed and the exact error
-
-> [!NOTE]  
-> The `setup-tektoncd` step may occasionally fail due to GitHub API `rate limits` (see [tektoncd/actions#9](https://github.com/tektoncd/actions/issues/9)).  
-> This is a known issue and not related to your changes.  
->  
-> The current workaround is to `re-run the workflow`.
 
 
 [task-repo-shared-ci]: https://github.com/konflux-ci/task-repo-shared-ci

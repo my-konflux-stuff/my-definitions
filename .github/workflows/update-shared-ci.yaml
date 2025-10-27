@@ -13,7 +13,7 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           # cruft works better with full git history
           fetch-depth: 0
@@ -52,8 +52,9 @@ jobs:
           >
           > Please address the problems manually and then mark the PR ready for review.
           >
-          $(printf '> - ❌ `%s`\n' "${merge_conflicts[@]}" "${rejected_patches[@]}")
           EOF
+            # shellcheck disable=SC2016  # we don't want to expand the backticks
+            printf '> - ❌ `%s`\n' "${merge_conflicts[@]}" "${rejected_patches[@]}" >> /tmp/body.md
           else
             echo draft=false >> "$GITHUB_OUTPUT"
           fi
@@ -103,7 +104,7 @@ jobs:
 
           bash "$renovate_update_script"
 
-      - uses: actions/create-github-app-token@v2.0.6
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
         with:
           # These may already be set globally for your organization
@@ -112,7 +113,7 @@ jobs:
           private-key: ${{ secrets.SHARED_CI_UPDATER_PRIVATE_KEY }}
 
       - name: Create pull request if needed
-        uses: peter-evans/create-pull-request@v7.0.8
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
           token: ${{ steps.app-token.outputs.token }}
           title: Update shared CI files

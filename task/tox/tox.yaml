@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  labels:
+    app.kubernetes.io/version: "0.1"
+    build.appstudio.redhat.com/build_type: "docker"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: "test, konflux"
+  name: tox
+spec:
+  steps:
+  - name: tox
+    image: registry.access.redhat.com/ubi9/ubi-minimal:9.1.0-1829@sha256:95413c8dacaac773421428947a431c1cb099d19b4b1125df77d5d1cd2f463ab8
+    script: |
+      #!/usr/bin/env bash
+      printf "run tox\n"

@@ -34,3 +34,4 @@ spec:
       printf "bump version to 0.1.16\n"
       printf "bump version to 0.1.17\n"
       printf "bump version to 0.1.18. There is a migration.\n"
+      printf "check build logs\n"

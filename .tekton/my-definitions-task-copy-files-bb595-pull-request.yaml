@@ -169,6 +169,36 @@ spec:
         workspace: git-auth
       - name: netrc
         workspace: netrc
+
+    # - name: build-container
+    #   params:
+    #   - name: IMAGE
+    #     value: $(params.output-image)
+    #   - name: CONTEXT
+    #     value: $(params.path-context)
+    #   - name: URL
+    #     value: $(params.git-url)
+    #   - name: REVISION
+    #     value: $(params.revision)
+    #   - name: SOURCE_ARTIFACT
+    #     value: $(tasks.prefetch-dependencies.results.SOURCE_ARTIFACT)
+    #   runAfter:
+    #   - prefetch-dependencies
+    #   taskRef:
+    #     params:
+    #     - name: name
+    #       value: tkn-bundle-oci-ta
+    #     - name: bundle
+    #       value: quay.io/konflux-ci/tekton-catalog/task-tkn-bundle-oci-ta:0.2@sha256:9713f360e1cb7aa37fc98b633affcaf002ddfee5362b75123447d148cf0f8960
+    #     - name: kind
+    #       value: task
+    #     resolver: bundles
+    #   when:
+    #   - input: $(tasks.init.results.build)
+    #     operator: in
+    #     values:
+    #     - "true"
+
     - name: build-container
       params:
       - name: IMAGE
@@ -185,18 +215,21 @@ spec:
       - prefetch-dependencies
       taskRef:
         params:
-        - name: name
-          value: tkn-bundle-oci-ta
-        - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-tkn-bundle-oci-ta:0.2@sha256:9713f360e1cb7aa37fc98b633affcaf002ddfee5362b75123447d148cf0f8960
-        - name: kind
-          value: task
-        resolver: bundles
+        - name: url
+          value: https://github.com/tkdchen/build-definitions.git
+        - name: revision
+          value: STONEBLD-3775
+        - name: pathInRepo
+          value: task/tkn-bundle-oci-ta/0.2/tkn-bundle-oci-ta.yaml
+        resolver: git
+
       when:
       - input: $(tasks.init.results.build)
         operator: in
         values:
         - "true"
+
+
     - name: build-image-index
       params:
       - name: IMAGE

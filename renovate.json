@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "dependencyDashboard": false,
+  "tekton": {
+    "fileMatch": ["\\.yaml$", "\\.yml$"],
+    "includePaths": [
+      "task/copy-files/**",
+      "task/copy-files-oci-ta/**",
+      ".tekton/**"
+    ]
+  }
+}

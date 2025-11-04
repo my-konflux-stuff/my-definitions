@@ -5,7 +5,11 @@
   ],
   "dependencyDashboard": false,
   "tekton": {
-    "fileMatch": ["\\.yaml$", "\\.yml$"],
+    "managerFilePatterns": [
+      "/\\.yaml$/",
+      "/\\.yml$/"
+    ],
+    
     "includePaths": [
       "task/copy-files/**",
       "task/copy-files-oci-ta/**",

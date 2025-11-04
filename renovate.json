@@ -16,6 +16,14 @@
       ".tekton/**"
     ],
 
+    "packageRules": [
+      {
+        "matchPackageNames": [
+          "quay.io/konflux-ci/tools"
+        ]
+      }
+    ],
+
     "postUpgradeTasks": {
       "commands": [
         "echo \"$RENOVATE_POST_UPGRADE_COMMAND_DATA_FILE\"",

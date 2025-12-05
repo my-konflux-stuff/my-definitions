@@ -9,7 +9,7 @@ spec:
       name: application
   resolverRef:
     resolver: git
-    resourceKind: pipelinerun
+    resourceKind: pipeline
     params:
       - name: url
         value: https://github.com/my-konflux-stuff/my-definitions

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "dependencyDashboard": false,
+  "tekton": {
+    "managerFilePatterns": [
+      "/\\.yaml$/",
+      "/\\.yml$/"
+    ],
+    "includePaths": [
+      "task/copy-files/**",
+      "task/copy-files-oci-ta/**",
+      ".tekton/**"
+    ],
+    "packageRules": [
+      {
+        "matchPackageNames": [
+          "quay.io/konflux-ci/tools"
+        ]
+      }
+    ],
+    "postUpgradeTasks": {
+      "commands": [
+        "echo \"$RENOVATE_POST_UPGRADE_COMMAND_DATA_FILE\"",
+        "cat \"$RENOVATE_POST_UPGRADE_COMMAND_DATA_FILE\""
+      ],
+      "executionMode": "branch",
+      "dataFileTemplate": "[{{#each upgrades}}{\"depName\": \"{{{depName}}}\", \"currentValue\": \"{{{currentValue}}}\", \"currentDigest\": \"{{{currentDigest}}}\", \"newValue\": \"{{{newValue}}}\", \"newDigest\": \"{{{newDigest}}}\", \"packageFile\": \"{{{packageFile}}}\", \"parentDir\": \"{{{parentDir}}}\", \"depTypes\": [{{#each depTypes}}\"{{{this}}}\"{{#unless @last}},{{/unless}}{{/each}}]}{{#unless @last}},{{/unless}}{{/each}}]"
+    }
+  }
+}

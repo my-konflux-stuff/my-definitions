@@ -16,7 +16,7 @@ spec:
     default: []
   steps:
   - name: copy-files
-    image: quay.io/konflux-ci/tools@sha256:a42cfa49ba1adff89d940538b89adbcc765e83f1adffe841775ecf27f657058b
+    image: quay.io/konflux-ci/tools@sha256:5ef2b700ff5a1543a4aaae11b606fd030a31c812f079cf7aa058bd8f9c7b5da9
     script: |
       #!/usr/bin/env bash
       set -euo pipefail

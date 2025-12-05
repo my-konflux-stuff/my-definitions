@@ -24,9 +24,9 @@ spec:
       resolver: git
       params:
       - name: url
-        value: "https://github.com/my-konflux-stuff/my-definitions.git"
+        value: https://github.com/my-konflux-stuff/my-definitions.git
       - name: revision
         value: main
       - name: pathInRepo
-        value: "resources/tenant-release-pipeline.yaml"
+        value: releases/tenant-release-pipeline.yaml
     serviceAccountName: build-pipeline-my-definitions-task-init-v01-ew02

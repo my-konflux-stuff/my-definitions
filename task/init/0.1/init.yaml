@@ -38,3 +38,4 @@ spec:
       printf "another test walking through build, integration tests and release\n"
       printf "testing using konflux release pipeline\n"
       printf "testing using konflux release pipeline again\n"
+      printf "testing using konflux release pipeline again again\n"

@@ -22,3 +22,4 @@ spec:
       set -euo pipefail
       echo copy files
       printf "start to test STONEBLD-3775\n"
+      printf "in progress STONEBLD-3775\n"

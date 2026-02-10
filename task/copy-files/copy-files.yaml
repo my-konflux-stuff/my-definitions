@@ -21,3 +21,4 @@ spec:
       #!/usr/bin/env bash
       set -euo pipefail
       echo copy files
+      printf "start to test STONEBLD-3775\n"

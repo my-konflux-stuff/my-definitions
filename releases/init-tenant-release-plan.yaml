@@ -26,7 +26,7 @@ spec:
       - name: url
         value: https://github.com/konflux-ci/release-service-catalog.git
       - name: revision
-        value: main
+        value: development
       - name: pathInRepo
         value: pipelines/managed/push-tekton-task-bundles-to-external-registry/push-tekton-task-bundles-to-external-registry.yaml
     serviceAccountName: build-pipeline-my-definitions-task-init-v01-ew02

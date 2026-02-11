@@ -16,7 +16,7 @@ spec:
       defaults:
         public: true
       components:
-        - name: my-definitions-task-init-v01-ew02
+        - name: my-definitions-task-init-v01-caef3
           repository: quay.io/mytestworkload/my-tekton-catalog/task-init
           tags:
           - "0.1"

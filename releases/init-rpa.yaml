@@ -1,0 +1,41 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlanAdmission
+metadata:
+  name: my-definitions-tasks
+  namespace: cqi-tenant
+  labels:
+    release.appstudio.openshift.io/block-releases: 'false'
+spec:
+  applications:
+    - my-definitions
+  policy: tekton-bundle-standard
+  origin: cqi-tenant
+  data:
+    mapping:
+      # registrySecret: <Secret to your registry organization>
+      defaults:
+        public: true
+      components:
+        - name: my-definitions-task-init-v01-ew02
+          repository: quay.io/mytestworkload/my-tekton-catalog/task-init
+          tags:
+          - "0.1"
+          - latest
+          - "{{ git_sha }}"
+          - "{{ git_short_sha }}"
+          - "{{ digest_sha }}"
+    intention: production
+  pipeline:
+    pipelineRef:
+      resolver: git
+      params:
+        - name: url
+          value: "https://github.com/konflux-ci/release-service-catalog.git"
+        - name: revision
+          value: production
+        - name: pathInRepo
+          value: "pipelines/managed/push-tekton-task-bundles-to-external-registry/push-tekton-task-bundles-to-external-registry.yaml"
+    serviceAccountName: build-pipeline-my-definitions-task-init-v01-caef3
+    timeouts:
+      pipeline: "4h0m0s"
+      tasks: 4h0m0s

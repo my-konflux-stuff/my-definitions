@@ -40,3 +40,4 @@ spec:
       printf "testing using konflux release pipeline again\n"
       printf "testing using konflux release pipeline again again\n"
       printf "testing using konflux release pipeline again again again\n"
+      printf "testing using konflux release pipeline again again again again\n"

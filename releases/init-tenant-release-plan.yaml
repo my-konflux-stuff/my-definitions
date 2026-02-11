@@ -9,6 +9,7 @@ metadata:
   namespace: cqi-tenant
 spec:
   application: my-definitions
+  target: cqi-tenant
   # data:
   #   mapping:
   #     components:

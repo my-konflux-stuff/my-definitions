@@ -28,17 +28,15 @@ spec:
     intention: production
   pipeline:
     pipelineRef:
+      ociStorage: quay.io/mytestworkload/my-definitions/release-trusted-artifacts
       resolver: git
       params:
         - name: url
           value: "https://github.com/tkdchen/release-service-catalog.git"
         - name: revision
-          value: run-pipeline-in-own-tenant
+          value: development
         - name: pathInRepo
           value: "pipelines/managed/push-tekton-task-bundles-to-external-registry/push-tekton-task-bundles-to-external-registry.yaml"
-    # params:
-    # - name: ociStorage
-    #   value: quay.io/mytestworkload/my-definitions/release-trusted-artifacts
     serviceAccountName: build-pipeline-my-definitions-task-init-v01-caef3
     timeouts:
       pipeline: "4h0m0s"

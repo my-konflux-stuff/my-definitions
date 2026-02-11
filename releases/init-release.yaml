@@ -8,4 +8,4 @@ metadata:
    release.appstudio.openshift.io/author: cqi
 spec:
  releasePlan: publish-bundle
- snapshot: my-definitions-20260211-034815-000
+ snapshot: # replace with real snapshot name

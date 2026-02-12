@@ -24,22 +24,4 @@ spec:
     script: |
       #!/usr/bin/env bash
       set -euo pipefail
-      printf "init task\n"
-      printf "Working for project %s\n" "$PROJECT_NAME"
-      printf "revision:\n"
-      printf "test on 2025-08-19:\n"
-      printf "show image info\n"
-      printf "integration tests has been set up.\n"
-      printf "review pr.\n"
-      printf "bump version to 0.1.16\n"
-      printf "bump version to 0.1.17\n"
-      printf "bump version to 0.1.18. There is a migration.\n"
-      printf "check build logs\n"
-      printf "another test walking through build, integration tests and release\n"
-      printf "testing using konflux release pipeline\n"
-      printf "testing using konflux release pipeline again\n"
-      printf "testing using konflux release pipeline again again\n"
-      printf "testing using konflux release pipeline again again again\n"
-      printf "testing using konflux release pipeline again again again again\n"
-      printf "Check releaseGracePeriodDays on Release CR set by integration service\n"
-      printf "Check releaseGracePeriodDays on Release CR set by integration service again\n"
+      printf "hello new world\n"

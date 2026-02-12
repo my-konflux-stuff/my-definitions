@@ -14,4 +14,5 @@ spec:
     image: registry.access.redhat.com/ubi9/ubi-minimal:9.1.0-1829@sha256:95413c8dacaac773421428947a431c1cb099d19b4b1125df77d5d1cd2f463ab8
     script: |
       #!/usr/bin/env bash
+      set -euo pipefail
       printf "run tox\n"

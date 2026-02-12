@@ -25,3 +25,4 @@ spec:
       #!/usr/bin/env bash
       set -euo pipefail
       printf "hello new world\n"
+      printf "hello new, new world\n"

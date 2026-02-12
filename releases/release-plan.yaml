@@ -1,0 +1,12 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlan
+metadata:
+  labels:
+    release.appstudio.openshift.io/auto-release: "true"
+    release.appstudio.openshift.io/standing-attribution: "true"
+    release.appstudio.openshift.io/releasePlanAdmission: my-definitions-tasks
+  name: publish-bundle
+  namespace: cqi-tenant
+spec:
+  application: my-definitions
+  target: cqi-tenant

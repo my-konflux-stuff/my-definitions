@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 snapshot=${1:?Missing snapshot name}
-yq ".spec.snapshot |= \"${snapshot}\"" releases/init-release.yaml >/tmp/init-release.yaml
+temp_release_cr=/tmp/release-cr.yaml
+yq ".spec.snapshot |= \"${snapshot}\"" releases/release-templ.yaml >"$temp_release_cr"
 printf "Apply Release:\n\n"
-trap 'rm /tmp/init-release.yaml' EXIT ERR
-cat /tmp/init-release.yaml
+trap 'rm "$temp_release_cr"' EXIT ERR
+cat "$temp_release_cr"
 printf "\n"
-kubectl create -f /tmp/init-release.yaml -n cqi-tenant
+kubectl create -f "$temp_release_cr" -n cqi-tenant

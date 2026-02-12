@@ -8,5 +8,6 @@ metadata:
     release.appstudio.openshift.io/automated: "false"
     release.appstudio.openshift.io/author: cqi
 spec:
+  gracePeriodDays: 2
   releasePlan: publish-bundle
   snapshot:  # replace with real snapshot name

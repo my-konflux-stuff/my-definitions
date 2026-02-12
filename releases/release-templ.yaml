@@ -1,11 +1,12 @@
+---
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: Release
 metadata:
- generateName: my-definitions-task-init-v01-
- namespace: cqi-tenant
- labels:
-   release.appstudio.openshift.io/automated: "false"
-   release.appstudio.openshift.io/author: cqi
+  generateName: my-definitions-task-init-v01-
+  namespace: cqi-tenant
+  labels:
+    release.appstudio.openshift.io/automated: "false"
+    release.appstudio.openshift.io/author: cqi
 spec:
- releasePlan: publish-bundle
- snapshot: # replace with real snapshot name
+  releasePlan: publish-bundle
+  snapshot:  # replace with real snapshot name

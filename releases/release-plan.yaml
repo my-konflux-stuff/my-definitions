@@ -8,5 +8,6 @@ metadata:
   name: publish-bundle
   namespace: cqi-tenant
 spec:
+  releaseGracePeriodDays: 2
   application: my-definitions
   target: cqi-tenant

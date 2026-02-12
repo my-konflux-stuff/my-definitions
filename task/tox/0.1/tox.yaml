@@ -2,11 +2,11 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   labels:
-    app.kubernetes.io/version: "0.1.2"
+    app.kubernetes.io/version: "0.1"
     build.appstudio.redhat.com/build_type: "docker"
   annotations:
     tekton.dev/pipelines.minVersion: "0.12.1"
-    tekton.dev/tags: "test, konflux"
+    tekton.dev/tags: "test, konflux, python"
   name: tox
 spec:
   steps:

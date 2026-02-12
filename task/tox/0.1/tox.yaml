@@ -16,3 +16,4 @@ spec:
       #!/usr/bin/env bash
       set -euo pipefail
       printf "run tox\n"
+      printf "tox -l\n"

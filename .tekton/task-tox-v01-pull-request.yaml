@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: |
         event == "pull_request" && target_branch == "main" && (
-          "./task/tox/0.1/***".pathChanged() ||
+          "task/tox/0.1/***".pathChanged() ||
           ".tekton/task-tox-v01-pull-request.yaml".pathChanged()
         )
   creationTimestamp: null

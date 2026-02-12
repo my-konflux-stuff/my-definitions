@@ -26,3 +26,4 @@ spec:
       set -euo pipefail
       printf "hello new world\n"
       printf "hello new, new world\n"
+      printf "hello new, new, new world\n"

@@ -25,6 +25,14 @@ spec:
           - "{{ git_sha }}"
           - "{{ git_short_sha }}"
           - "{{ digest_sha }}"
+        - name: task-tox-v01
+          repository: quay.io/mytestworkload/my-tekton-catalog/task-tox
+          tags:
+          - "0.1"
+          - latest
+          - "{{ git_sha }}"
+          - "{{ git_short_sha }}"
+          - "{{ digest_sha }}"
     intention: production
   pipeline:
     pipelineRef:

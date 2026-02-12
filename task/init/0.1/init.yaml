@@ -41,3 +41,4 @@ spec:
       printf "testing using konflux release pipeline again again\n"
       printf "testing using konflux release pipeline again again again\n"
       printf "testing using konflux release pipeline again again again again\n"
+      printf "Check releaseGracePeriodDays on Release CR set by integration service\n"

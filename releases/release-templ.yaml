@@ -2,7 +2,7 @@
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: Release
 metadata:
-  generateName: my-definitions-task-init-v01-
+  generateName: my-definitions-release-
   namespace: cqi-tenant
   labels:
     release.appstudio.openshift.io/automated: "false"

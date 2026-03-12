@@ -1,1 +1,7 @@
 *~
+.aider.*
+.idea/
+
+# build and push bundles
+task-bundle-list-konflux-ci
+task-pipeline-list-konflux-ci

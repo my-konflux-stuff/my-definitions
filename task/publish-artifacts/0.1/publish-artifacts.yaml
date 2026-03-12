@@ -14,6 +14,8 @@ spec:
     default: ""
   - name: file2
     default: ""
+  - name: file3
+    default: ""
   steps:
   - name: publish-artifacts
     image: registry.access.redhat.com/ubi9/ubi-minimal:9.1.0-1829@sha256:95413c8dacaac773421428947a431c1cb099d19b4b1125df77d5d1cd2f463ab8

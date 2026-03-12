@@ -6,3 +6,7 @@ metadata:
 spec:
   params:
   tasks:
+  - name: publish-artifacts
+    taskRef:
+      name: publish-artifacts
+      version: "0.1"

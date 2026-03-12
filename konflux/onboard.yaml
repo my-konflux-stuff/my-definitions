@@ -6,6 +6,7 @@ metadata:
   namespace: cqi-tenant
 spec:
   displayName: my-definitions
+# Task tox
 ---
 apiVersion: appstudio.redhat.com/v1alpha1
 kind: Component
@@ -47,3 +48,45 @@ spec:
       event: repo_push
       method: webhook
       title: SBOM-event-to-Bombino
+# Task init
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Component
+metadata:
+  name: task-int-v01
+  namespace: cqi-tenant
+  annotations:
+    build.appstudio.openshift.io/request: configure-pac
+    build.appstudio.openshift.io/pipeline: '{"name":"tekton-bundle-builder-oci-ta","bundle":"latest"}'
+    git-provider: github
+    git-provider-url: https://github.com
+spec:
+  application: my-definitions
+  componentName: task-init-v01
+  source:
+    git:
+      revision: main
+      url: https://github.com/my-konflux-stuff/my-definitions.git
+      dockerfileUrl:
+      context: ./task/init/0.1/
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ImageRepository
+metadata:
+  annotations:
+    image-controller.appstudio.redhat.com/update-component-image: "true"
+  name: imagerepository-for-my-definitions-task-init-v01
+  namespace: cqi-tenant
+  labels:
+    appstudio.redhat.com/application: my-definitions
+    appstudio.redhat.com/component: task-init-v01
+spec:
+  image:
+    name: cqi-tenant/task-init-v01
+    visibility: public
+  notifications:
+  - config:
+      url: https://bombino.api.redhat.com/v1/sbom/quay/push
+    event: repo_push
+    method: webhook
+    title: SBOM-event-to-Bombino

@@ -16,4 +16,4 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: integration-tests/test-pipeline.yaml
+        value: konflux/integration-tests/test-pipeline.yaml

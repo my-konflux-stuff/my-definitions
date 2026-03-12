@@ -3,5 +3,8 @@
   "extends": [
     "config:recommended"
   ],
-  "dependencyDashboard": false
+  "dependencyDashboard": false,
+  "tekton": {
+    "schedule": ["at any time"]
+  }
 }

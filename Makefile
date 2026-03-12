@@ -34,6 +34,6 @@ new_version ?= 0.2
 task/bump-version:
 	mkdir -p task/$(task_name)/$(new_version)/
 	cp task/$(task_name)/$(old_version)/$(task_name).yaml task/$(task_name)/$(new_version)/
-	sed -iE 's|( +app\.kubernetes\.io/version:) "[0-9]+\.[0-9]+(\.[0-9]+)?"|\1 "$(new_version)"|' \
+	sed -i -E 's|( +app\.kubernetes\.io/version:) "[0-9]+\.[0-9]+(\.[0-9]+)?"|\1 "$(new_version)"|' \
 		task/$(task_name)/$(new_version)/$(task_name).yaml
 	git add task/$(task_name)/$(new_version)/

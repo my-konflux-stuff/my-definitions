@@ -18,3 +18,11 @@ build-and-push:
 	OUTPUT_PIPELINE_BUNDLE_LIST=$(output_pipeline_bundle_list) \
 	TEST_TASKS=$(build_tasks) \
 	hack/build-and-push.sh
+
+task_name ?= example
+
+.PHONY: new-task
+new-task:
+	mkdir -p task/$(task_name)/0.1/
+	printf "# Task $(task_name)\n\nCreated by Makefile" >task/$(task_name)/README.md
+	sed "s/\$task_name/$(task_name)/" task-templ.yaml >task/$(task_name)/0.1/$(task_name).yaml

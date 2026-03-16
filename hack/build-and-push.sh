@@ -527,17 +527,22 @@ determine_task_versions() {
 }
 
 # Find target bundle for the link
-# A target bundle is the first bundle appearing in an image repository which is built from version that
-# either equals to the task version or is the previous version. For exmaple of given bundle tags:
+#
+# A target bundle is the first bundle appearing in an image repository which is built from version
+# that either equals to the task version or is the previous version. For exmaple of bundle tags:
 #
 # 0.2-74426bc524760567d700f9c14ec7deef02e9e57d
+# 0.2
 # 0.3-6bc524760567d700f9c14ec7deef02e9e57d7442
+# 0.3
 # 0.2-4760567d700f9c14ec7deef02e9e57d74426bc52
 # 0.1-9c14ec7deef02e9e57d74426bc524760567d700f
+# 0.1
 #
-# Then, when building bundle for version 0.4, the target bundle is
-# 0.3-6bc524760567d700f9c14ec7deef02e9e57d7442, when building bundle for an old version 0.1, the
-# target bundle is 0.1-9c14ec7deef02e9e57d74426bc524760567d700f.
+# Then,
+# - if build new bundle of version 0.3, the target bundle is 0.3
+# - if build new bundle of version 0.4, the target bundle is 0.3
+# - if build new bundle of version 0.1, the target bundle is 0.1
 #
 # This ensures that links are correctly established both within the same version and across versions
 # after a version bump.
@@ -545,37 +550,48 @@ determine_task_versions() {
 # Arguments:
 # 1. image_repo: namespaced image repository, e.g. konflux-ci/tekton-catalog/task-init
 # 2. task_version: task version the bundle is being built for, e.g. 0.4 or 0.2.
+#
+# Always return 0. Target bundle digest is output to stdout. If there is no target bundle, empty is
+# output to stdout.
 find_link_target_bundle() {
     local -r image_repo=${1:?Missing image repository}
     local -r cur_version=${2:?Missing current task version}
     local -r prev_version=${3}
-    local -r page_size=10
-    # Expected kind of tags: 0.2-24760567d700f9c14ec7deef02e9e57d74426bc5
-    local -r tag_pattern="%.%-%"
-    local -r params="filter_tag_name=like:${tag_pattern}&limit=${page_size}&onlyActiveTags=true"
-    local -r api_url="https://quay.io/api/v1/repository/${image_repo}/tag/?${params}"
-    local page=1
-    local has_additional=
-    local -r tags_file=/tmp/tags.json
-    while :; do
-        retry curl -H "Accept: application/json" --fail -sL "${api_url}&page=${page}" >"$tags_file"
-        while read -r tag_name manifest_digest; do
-            if ! grep -q -E "[0-9]+\.[0-9]+-[0-9a-f]{40}" <<<"$tag_name"; then
-                continue
-            fi
-            version=${tag_name%-*}
-            if [[ $version == "$cur_version" || $version == "$prev_version" ]]; then
-                printf "%s" "$manifest_digest"
-                return 0
-            fi
-        done < <(jq -r '.tags[] | .name + " " + .manifest_digest' <"$tags_file")
-        has_additional=$(jq -r '.has_additional // "false"' <"$tags_file")
-        if [[ $has_additional == false ]]; then
-            break
-        fi
-        ((page++))
-    done
-    return 1
+
+    # Output image digest to stdout. If there is no specified tag in registry, empty is output to
+    # stdout.
+    query_image_digest() {
+        local -r tag_name=$1
+        local -r api_endpoint="https://quay.io/api/v1/repository/${image_repo}/tag/"
+        local -r api_url="${api_endpoint}?specificTag=${tag_name}&onlyActiveTags=true"
+        local -r tags_file=/tmp/tags.json
+        retry curl -H "Accept: application/json" --fail -sL "${api_url}" >"$tags_file"
+        jq -r '.tags[].manifest_digest // ""' <"$tags_file"
+        rm "$tags_file"
+    }
+
+    local digest=
+
+    digest=$(query_image_digest "$cur_version")
+    if [[ -n "$digest" ]]; then
+        printf "%s" "$digest"
+        return 0
+    fi
+
+    # The current version being built is a new task version and is not present in the registry yet.
+    # Continue checking previous version.
+
+    if [[ -z "$prev_version" ]]; then
+        return 0
+    fi
+    digest=$(query_image_digest "$prev_version")
+    if [[ -n "$digest" ]]; then
+        printf "%s" "$digest"
+        return 0
+    fi
+
+    printf ""
+    return 0
 }
 
 # Find previous bundle that has a migration.
@@ -606,7 +622,8 @@ find_previous_bundle_that_has_migration() {
     local has_migration=
     local prev_bundle_digest=
 
-    if digest=$(find_link_target_bundle "$ns_repo" "$cur_version" "$prev_version"); then
+    digest=$(find_link_target_bundle "$ns_repo" "$cur_version" "$prev_version")
+    if [[ -n "$digest" ]]; then
         retry skopeo inspect --raw "docker://${image_repo}@${digest}" >/tmp/manifest.json
         has_migration=$(jq -r ".annotations.\"${ANNOTATION_HAS_MIGRATION}\" // \"false\"" </tmp/manifest.json)
         prev_bundle_digest=$(jq -r ".annotations.\"${ANNOTATION_PREVIOUS_MIGRATION_BUNDLE}\" // \"\"" </tmp/manifest.json)

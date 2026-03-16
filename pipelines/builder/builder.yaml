@@ -9,4 +9,4 @@ spec:
   - name: publish-artifacts
     taskRef:
       name: publish-artifacts
-      version: "0.1"
+      version: "0.3"

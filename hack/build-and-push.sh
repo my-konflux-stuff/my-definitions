@@ -31,7 +31,6 @@
 #   generally. Note that, if used, the result pipelines are broken.
 
 set -e -o pipefail
-set -x
 
 VCS_URL=https://github.com/konflux-ci/build-definitions
 VCS_REF=$(git rev-parse HEAD)
@@ -212,9 +211,9 @@ declare -r GENERATED_PIPELINES_DIR
 oc kustomize --output "$GENERATED_PIPELINES_DIR" pipelines/
 
 # Generate YAML files separately since pipelines for core services have same .metadata.name.
-# CORE_SERVICES_PIPELINES_DIR=$(mktemp -d -p "$WORKDIR" core-services-pipelines.XXXXXXXX)
-# declare -r CORE_SERVICES_PIPELINES_DIR
-# oc kustomize --output "$CORE_SERVICES_PIPELINES_DIR" pipelines/core-services/
+CORE_SERVICES_PIPELINES_DIR=$(mktemp -d -p "$WORKDIR" core-services-pipelines.XXXXXXXX)
+declare -r CORE_SERVICES_PIPELINES_DIR
+oc kustomize --output "$CORE_SERVICES_PIPELINES_DIR" pipelines/core-services/
 
 
 inject_bundle_ref_to_pipelines() {
@@ -231,8 +230,7 @@ inject_bundle_ref_to_pipelines() {
     }"
     echo "Bundle ref: ${bundle_ref}"
     local -r task_selector="select(.name == \"${task_name}\" and .version == \"${task_version}\")"
-    # find "$GENERATED_PIPELINES_DIR" "$CORE_SERVICES_PIPELINES_DIR" -maxdepth 1 -type f -name '*.yaml' | \
-    find "$GENERATED_PIPELINES_DIR" -maxdepth 1 -type f -name '*.yaml' | \
+    find "$GENERATED_PIPELINES_DIR" "$CORE_SERVICES_PIPELINES_DIR" -maxdepth 1 -type f -name '*.yaml' | \
         while read -r pipeline_file; do
             echo "Processing file: ${pipeline_file}"
             yq e "(.spec.tasks[].taskRef | ${task_selector}) |= ${bundle_ref}" -i "${pipeline_file}"
@@ -479,51 +477,96 @@ attach_migration_file() {
     return 0
 }
 
-# Check if a digest points to a migration artifact.
+
+# Generates task bundle with tag. The result bundle reference can be configured
+# by environment variable TEST_REPO_NAME for testing purpose.
+# Arguments: task_name, task_version
+# Task bundle reference is output to stdout.
+generate_tagged_task_bundle() {
+    local -r task_name=$1 task_version=$2
+    local -r repository=${TEST_REPO_NAME:-task-${task_name}}
+    local -r tag=${TEST_REPO_NAME:+${task_name}-}${task_version}
+    echo "quay.io/${QUAY_NAMESPACE}/${repository}:${tag}"
+}
+
+# Determine current and previous version for a given base task version.
+# If a task has versions 0.1, 0.2, 0.3, 0.4,
+# - for a given version 0.4, function returns 0.4 as current version and 0.3 as previous version.
+# - for a given version 0.1, 0.1 is returned as current version and previous version is empty.
+# Output form:
+# - empty: there is no version directory or given version does not exist.
+# - single version: it is the current version. There is single version of task.
+# - two versions: space-separated current and previous versions in sequence.
 # Arguments:
-# 1. image_repo: namespaced image repository, e.g. konflux-ci/tekton-catalog/task-init
-# 2. image_digest: image digest, e.g. sha256:....
-# Return 0 if it is, otherwise 1 is returned.
-is_migration_artifact() {
-    local -r image_repo=${1:?Missing image repository}
-    local -r image_digest=${2:?Missing image digest}
-    local is_migration=
-    local -r manifest_file=/tmp/manifest.json
-    retry skopeo inspect --raw "docker://quay.io/${image_repo}@${image_digest}" >"$manifest_file"
-    if jq -e 'has("errors")' <"$manifest_file" >/dev/null; then
-        printf "Manifest does not exist: %s\n" "$image_digest" >&2
-        printf "Response message: " >&2
-        jq '.errors[].message' <"$manifest_file" >&2
-        return 1
+# 1. task_name: task name, e.g. init.
+# 2. base_version: determine current and previous version based on it, e.g. 0.2.
+# Always return 0.
+determine_task_versions() {
+    local -r task_name=${1:?Missing task name}
+    local -r base_version=${2:?Missing base version}
+    # Try to list current and previous versions from task directory in ascending order.
+    # Symlinks pointing to archived versions are excluded.
+    if ! find "task/${task_name}/" -mindepth 1 -maxdepth 1 -type d -exec basename '{}' \; |
+        sort -t. -k 1,1n -k 2,2n -k 3,3n |
+        grep -B 1 -E "^${base_version}$" >/tmp/versions.txt
+    then
+        # Task version is not present in task directory.
+        # No version is output to stdout, caller will get both empty current and previous version.
+        return 0
     fi
-    is_migration=$(jq -r ".manifests[0].annotations.\"$ANNOTATION_IS_MIGRATION\" // \"false\"" <"$manifest_file")
-    if [[ $is_migration != true ]]; then
-        return 1
+    mapfile -t versions </tmp/versions.txt
+    rm /tmp/versions.txt
+    if [[ ${#versions[@]} -eq 1 ]]; then
+        printf "%s" "${versions[@]}"  # There is only current version
+        return 0
     fi
+    local prev_version="${versions[0]}"
+    local cur_version="${versions[1]}"
+    printf "%s %s" "$cur_version" "$prev_version"
     return 0
 }
 
-# Find out migration artifact from an image repository.
+# Find target bundle for the link
+# A target bundle is the first bundle appearing in an image repository which is built from version that
+# either equals to the task version or is the previous version. For exmaple of given bundle tags:
+#
+# 0.2-74426bc524760567d700f9c14ec7deef02e9e57d
+# 0.3-6bc524760567d700f9c14ec7deef02e9e57d7442
+# 0.2-4760567d700f9c14ec7deef02e9e57d74426bc52
+# 0.1-9c14ec7deef02e9e57d74426bc524760567d700f
+#
+# Then, when building bundle for version 0.4, the target bundle is
+# 0.3-6bc524760567d700f9c14ec7deef02e9e57d7442, when building bundle for an old version 0.1, the
+# target bundle is 0.1-9c14ec7deef02e9e57d74426bc524760567d700f.
+#
+# This ensures that links are correctly established both within the same version and across versions
+# after a version bump.
+#
 # Arguments:
 # 1. image_repo: namespaced image repository, e.g. konflux-ci/tekton-catalog/task-init
-# Return 0 if found and the image tag is output to stdout. Otherwise, return 1 and nothing is output to stdout.
-find_last_migration_artifact() {
+# 2. task_version: task version the bundle is being built for, e.g. 0.4 or 0.2.
+find_link_target_bundle() {
     local -r image_repo=${1:?Missing image repository}
+    local -r cur_version=${2:?Missing current task version}
+    local -r prev_version=${3}
     local -r page_size=10
-    local -r tag_pattern="sha256-%"
+    # Expected kind of tags: 0.2-24760567d700f9c14ec7deef02e9e57d74426bc5
+    local -r tag_pattern="%.%-%"
     local -r params="filter_tag_name=like:${tag_pattern}&limit=${page_size}&onlyActiveTags=true"
     local -r api_url="https://quay.io/api/v1/repository/${image_repo}/tag/?${params}"
     local page=1
     local has_additional=
     local -r tags_file=/tmp/tags.json
     while :; do
-        retry curl --fail -sL "${api_url}&page=${page}" >"$tags_file"
+        retry curl -H "Accept: application/json" --fail -sL "${api_url}&page=${page}" >"$tags_file"
         while read -r tag_name manifest_digest; do
-            if is_migration_artifact "$image_repo" "$manifest_digest"; then
-                printf "%s" "$tag_name"
+            if ! grep -q -E "[0-9]+\.[0-9]+-[0-9a-f]{40}" <<<"$tag_name"; then
+                continue
+            fi
+            version=${tag_name%-*}
+            if [[ $version == "$cur_version" || $version == "$prev_version" ]]; then
+                printf "%s" "$manifest_digest"
                 return 0
-            else
-                printf "%s@%s is not a migration artifact.\n" "$image_repo" "$manifest_digest" >&2
             fi
         done < <(jq -r '.tags[] | .name + " " + .manifest_digest' <"$tags_file")
         has_additional=$(jq -r '.has_additional // "false"' <"$tags_file")
@@ -535,62 +578,50 @@ find_last_migration_artifact() {
     return 1
 }
 
-# Check if a task bundle should have a migration.
-# Arguments:
-# 1. image_repo: image repository, e.g. konflux-ci/tekton-catalog/task-init
-# 2. image_digest: image digest, e.g. sha256:....
-# 3. task_name: task name. Used to validate if bundle was built for this task.
-is_a_migration_bundle_of_task() {
-    local -r image_repo=${1:?Missing image repository}
-    local -r image_digest=${2:?Missing image digest}
-    local -r task_name=${3:?Missing task name}
-    local image_kind=
-    local image_name=
-    local has_migration=
-    local manifest_file=/tmp/manifest.json
-    retry skopeo inspect --raw "docker://quay.io/${image_repo}@${image_digest}" >"$manifest_file"
-    image_kind=$(jq -r '.layers[].annotations."dev.tekton.image.kind" // "unknown"' <"$manifest_file")
-    image_name=$(jq -r '.layers[].annotations."dev.tekton.image.name" // "unknown"' <"$manifest_file")
-    if [[ $image_kind != task || $image_name != "$task_name" ]]; then
-        # This is not a tekton bundle
-        return 1
-    fi
-    has_migration=$(jq -r ".annotations.\"$ANNOTATION_HAS_MIGRATION\" // \"unknown\"" <"$manifest_file")
-    if [[ $has_migration == true ]]; then
-        return 0
-    fi
-    return 1
-}
-
-# Find previous migration bundle and output its digest to stdout.
-# If there is no migration bundle, nothing is output to stdout.
+# Find previous bundle that has a migration.
+# If found, bundle image digest is output to stdout, otherwise, nothing is output.
 # Arguments:
 # 1. task_name: task name, e.g. init.
 # 2. task_version: task version, e.g. 0.2, 0.3.
-# Always return 0.
-find_previous_migration_bundle_digest() {
+# Always returns 0.
+find_previous_bundle_that_has_migration() {
     local -r task_name=${1:?Missing task name}
     local -r task_version=${2:?Missing task version}
-    local migration_artifact_tag=
     local bundle_ref=
+    local image_repo=
     local ns_repo=
-    local bundle_digest=
 
     bundle_ref=$(generate_tagged_task_bundle "$task_name" "$task_version")
-    ns_repo=${bundle_ref%:*}  # remove tag
-    ns_repo=${ns_repo#*/}  # remove registry
+    image_repo="${bundle_ref%:*}"  # remove tag
+    ns_repo="${image_repo#*/}"  # remove registry
 
-    if ! migration_artifact_tag=$(find_last_migration_artifact "$ns_repo"); then
-        printf ""
-        return 0
+    read -r cur_version prev_version <<< "$(determine_task_versions "$task_name" "$task_version")"
+
+    if [[ -z "$cur_version" ]]; then
+        printf "Task %s does not have version %s\n" "$task_name" "$task_version" >&2
+        exit 1
     fi
 
-    bundle_digest=${migration_artifact_tag/-/:}
-    if is_a_migration_bundle_of_task "$ns_repo" "$bundle_digest" "$task_name"; then
-        printf "%s" "$bundle_digest"
-        return 0
-    fi
+    local digest=
+    local has_migration=
+    local prev_bundle_digest=
 
+    if digest=$(find_link_target_bundle "$ns_repo" "$cur_version" "$prev_version"); then
+        retry skopeo inspect --raw "docker://${image_repo}@${digest}" >/tmp/manifest.json
+        has_migration=$(jq -r ".annotations.\"${ANNOTATION_HAS_MIGRATION}\" // \"false\"" </tmp/manifest.json)
+        prev_bundle_digest=$(jq -r ".annotations.\"${ANNOTATION_PREVIOUS_MIGRATION_BUNDLE}\" // \"\"" </tmp/manifest.json)
+        rm /tmp/manifest.json
+
+        if [ "$has_migration" == "true" ]; then
+            printf "%s" "$digest"
+            return 0
+        fi
+        if [[ -n "$prev_bundle_digest" ]]; then
+            # This bundle points to a previous bundle that has migration.
+            printf "%s" "$prev_bundle_digest"
+            return 0
+        fi
+    fi
     return 0
 }
 
@@ -635,7 +666,7 @@ build_push_tasks() {
             continue
         fi
 
-        # echo "Handling task $task_dir - $task_name - $task_version"
+        echo "Handling task $task_dir - $task_name - $task_version"
         if [ -n "$TEST_TASKS" ] && echo "$TEST_TASKS" | grep -qv "$task_name" 2>/dev/null; then
             continue
         fi
@@ -693,7 +724,7 @@ build_push_tasks() {
 
         if [[ $build_new_bundle == true ]]; then
             echo "info: finding the previous task bundle that has a migration" 1>&2
-            previous_migration_bundle_digest=$(find_previous_migration_bundle_digest "$task_name" "$task_version")
+            previous_migration_bundle_digest=$(find_previous_bundle_that_has_migration "$task_name" "$task_version")
 
             echo "info: push new bundle $task_bundle" 1>&2
 
@@ -743,8 +774,7 @@ if [ "$QUAY_NAMESPACE" == redhat-appstudio-tekton-catalog ]; then
 fi
 
 # Build Pipeline bundle with pipelines pointing to newly built task bundles
-# for pipeline_yaml in "$GENERATED_PIPELINES_DIR"/*.yaml "$CORE_SERVICES_PIPELINES_DIR"/*.yaml
-for pipeline_yaml in "$GENERATED_PIPELINES_DIR"/*.yaml
+for pipeline_yaml in "$GENERATED_PIPELINES_DIR"/*.yaml "$CORE_SERVICES_PIPELINES_DIR"/*.yaml
 do
     pipeline_name=$(yq e '.metadata.name' "$pipeline_yaml")
     pipeline_description=$(yq e '.spec.description' "$pipeline_yaml" | head -n 1)
